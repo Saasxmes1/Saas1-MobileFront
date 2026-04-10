@@ -30,7 +30,9 @@ export interface AppState {
     title: string,
     rawInput: string,
     scheduledAt: Date | null,
-    dayKey: string
+    dayKey: string,
+    tags?: string[],
+    isRecurring?: boolean
   ) => Event;
   completeEvent: (id: string) => void;
   deleteEvent: (id: string) => void;
@@ -86,7 +88,7 @@ export const useAppStore = create<AppState>()(
 
       // ── Event Actions ──────────────────────────────────────────
 
-      addEvent: (title, rawInput, scheduledAt, dayKey) => {
+      addEvent: (title, rawInput, scheduledAt, dayKey, tags, isRecurring) => {
         const newEvent: Event = {
           id: generateId(),
           title,
@@ -96,6 +98,8 @@ export const useAppStore = create<AppState>()(
           isCompleted: false,
           createdAt: new Date().toISOString(),
           dayKey,
+          tags: tags || [],
+          isRecurring: !!isRecurring,
         };
 
         set((state) => ({

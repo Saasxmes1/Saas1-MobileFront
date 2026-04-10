@@ -35,6 +35,7 @@ function getDayLabel(dayKey: string): string {
 function buildSections(events: Event[]): SectionData[] {
   const grouped: Record<string, Event[]> = {};
   for (const event of events) {
+    if (event.isCompleted) continue; // Hide completed events from timeline
     if (!grouped[event.dayKey]) grouped[event.dayKey] = [];
     grouped[event.dayKey].push(event);
   }

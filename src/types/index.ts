@@ -11,6 +11,8 @@ export interface Event {
   isCompleted: boolean;
   createdAt: string; // ISO string
   dayKey: string; // YYYY-MM-DD for grouping
+  tags?: string[];
+  isRecurring?: boolean;
 }
 
 export interface JournalNote {
@@ -36,6 +38,8 @@ export interface ParsedInput {
   scheduledAt: Date | null;
   confidence: 'high' | 'low';
   dayKey: string; // YYYY-MM-DD
+  tags?: string[];
+  isRecurring?: boolean;
 }
 
 export interface SectionData {

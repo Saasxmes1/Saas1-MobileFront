@@ -74,13 +74,32 @@ function getTodayFallback(): Date {
 export function parseNaturalInput(rawText: string): ParsedInput {
   const trimmed = rawText.trim();
 
-  if (!trimmed) {
+  // 1. Extract hashtags
+  const tags: string[] = [];
+  const tagRegex = /(?:^|\\s)#([a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_]+)/g;
+  let match;
+  while ((match = tagRegex.exec(trimmed)) !== null) {
+    tags.push(match[1].toLowerCase());
+  }
+  // Strip hashtags from text
+  let textToParse = trimmed.replace(tagRegex, '').trim();
+
+  // 2. Check for recurrence
+  const recurrenceRegex = /\\b(cada|todos los|todas las|diariamente|semanalmente|mensualmente)\\b/gi;
+  const isRecurring = recurrenceRegex.test(textToParse);
+  if (isRecurring) {
+    textToParse = textToParse.replace(recurrenceRegex, '').trim();
+  }
+
+  if (!textToParse) {
     const now = new Date();
     return {
-      title: '',
+      title: trimmed, // keep original input if empty after strips
       scheduledAt: now,
       confidence: 'low',
       dayKey: format(now, 'yyyy-MM-dd'),
+      tags,
+      isRecurring,
     };
   }
 
@@ -90,7 +109,7 @@ export function parseNaturalInput(rawText: string): ParsedInput {
   let results: chrono.ParsedResult[] = [];
 
   try {
-    results = chrono.es.parse(trimmed, refDate, {
+    results = chrono.es.parse(textToParse, refDate, {
       forwardDate: true, // Prefer future dates
     });
   } catch {
@@ -98,7 +117,7 @@ export function parseNaturalInput(rawText: string): ParsedInput {
     results = [];
   }
 
-  const cleanTitle = extractCleanTitle(trimmed, results);
+  const cleanTitle = extractCleanTitle(textToParse, results);
 
   if (results.length > 0 && results[0].start) {
     const parsedDate = results[0].start.date();
@@ -109,6 +128,8 @@ export function parseNaturalInput(rawText: string): ParsedInput {
         scheduledAt: parsedDate,
         confidence: 'high',
         dayKey: format(parsedDate, 'yyyy-MM-dd'),
+        tags,
+        isRecurring,
       };
     }
   }
@@ -118,10 +139,12 @@ export function parseNaturalInput(rawText: string): ParsedInput {
   const todayStart = startOfDay(today);
 
   return {
-    title: cleanTitle || trimmed,
+    title: cleanTitle || textToParse,
     scheduledAt: todayStart,
     confidence: 'low',
     dayKey: format(todayStart, 'yyyy-MM-dd'),
+    tags,
+    isRecurring,
   };
 }
 

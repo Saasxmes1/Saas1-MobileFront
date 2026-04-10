@@ -117,7 +117,14 @@ export default function MagicInput({ petRef, onEventAdded }: Props) {
     ]).start();
 
     const parsed = parseNaturalInput(trimmed);
-    const newEvent = addEvent(parsed.title, trimmed, parsed.scheduledAt, parsed.dayKey);
+    const newEvent = addEvent(
+      parsed.title,
+      trimmed,
+      parsed.scheduledAt,
+      parsed.dayKey,
+      parsed.tags,
+      parsed.isRecurring
+    );
 
     Keyboard.dismiss();
     setText('');

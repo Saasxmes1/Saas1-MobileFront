@@ -22,6 +22,7 @@ import MagicInput from '../components/MagicInput';
 import PetCompanion, { type PetCompanionRef } from '../components/PetCompanion';
 import TimelineList from '../components/TimelineList';
 import AdBanner from '../components/AdBanner';
+import DailySuccessCard from '../components/DailySuccessCard';
 import { useAppStore } from '../store/useAppStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { requestNotificationPermissions } from '../services/notifications';
@@ -33,6 +34,16 @@ export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const petEnabled = useAppStore((s) => s.preferences.petEnabled);
   const isPremium = useSubscriptionStore((s) => s.isPremium);
+  const events = useAppStore((s) => s.events);
+
+  const progress = React.useMemo(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const todayEvents = events.filter((e) => e.dayKey === today);
+    const completed = todayEvents.filter((e) => e.isCompleted).length;
+    return { total: todayEvents.length, completed };
+  }, [events]);
+
+  const showSuccessCard = progress.total > 0 && progress.total === progress.completed;
 
   // Request notification permissions on first focus
   useFocusEffect(
@@ -105,6 +116,9 @@ export default function DashboardScreen() {
 
           {/* Magic Input */}
           <MagicInput petRef={petRef} onEventAdded={handleEventAdded} />
+
+          {/* Daily Success - Only show if all tasks for today are completed */}
+          {showSuccessCard && <DailySuccessCard />}
 
           {/* Timeline */}
           <View style={styles.timelineContainer}>

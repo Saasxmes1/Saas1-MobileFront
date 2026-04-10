@@ -19,7 +19,12 @@ export default function EventCard({ event }: Props) {
   const deleteEvent = useAppStore((s) => s.deleteEvent);
   const haptics = useHaptics();
 
+  const [isHidden, setIsHidden] = React.useState(false);
+
   const cardOpacity = useRef(new Animated.Value(1)).current;
+  const cardScale = useRef(new Animated.Value(1)).current;
+  const cardHeight = useRef(new Animated.Value(64)).current; // Base height initially
+  const strikeProgress = useRef(new Animated.Value(event.isCompleted ? 1 : 0)).current;
 
   const formatTime = (isoString: string | null) => {
     if (!isoString) return null;
@@ -31,38 +36,86 @@ export default function EventCard({ event }: Props) {
   };
 
   const handleComplete = useCallback(() => {
-    haptics.impactMedium();
-    completeEvent(event.id);
-  }, [completeEvent, event.id, haptics]);
+    if (event.isCompleted) return; // Prevent double trigger
+    
+    haptics.impactLight(); // 1. Initial haptic feedback
+
+    // 2. Animate Strikethrough and Pulse
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(cardScale, { toValue: 1.02, duration: 150, useNativeDriver: false }),
+        Animated.timing(cardScale, { toValue: 1, duration: 150, useNativeDriver: false }),
+      ]),
+      Animated.timing(strikeProgress, { toValue: 1, duration: 300, useNativeDriver: false }) // false so we can interpolate width
+    ]).start(() => {
+      // 3. Wait 600ms
+      setTimeout(() => {
+        // 4. Fade out and height collapse
+        Animated.parallel([
+          Animated.timing(cardOpacity, { toValue: 0, duration: 300, useNativeDriver: false }), // false for height
+          Animated.timing(cardHeight, { toValue: 0, duration: 300, useNativeDriver: false }),
+        ]).start(() => {
+          setIsHidden(true); // Hide component fully
+          completeEvent(event.id); // 5. Update Zustand
+        });
+      }, 600);
+    });
+  }, [completeEvent, event.id, haptics, cardScale, strikeProgress, cardOpacity, cardHeight, event.isCompleted]);
 
   const handleDelete = useCallback(() => {
     Animated.parallel([
-      Animated.timing(cardOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(cardOpacity, { toValue: 0, duration: 200, useNativeDriver: false }),
+      Animated.timing(cardHeight, { toValue: 0, duration: 200, useNativeDriver: false }),
     ]).start(() => {
+      setIsHidden(true);
       if (event.notificationId) {
         cancelReminder(event.notificationId).catch(() => {});
       }
       deleteEvent(event.id);
     });
     haptics.impactHeavy();
-  }, [deleteEvent, event.id, event.notificationId, haptics, cardOpacity]);
+  }, [deleteEvent, event.id, event.notificationId, haptics, cardOpacity, cardHeight]);
+
+  if (isHidden || event.isCompleted) return null; // Fully hide if removed or already completed in state
 
   const timeLabel = formatTime(event.scheduledAt);
 
+  const strikeWidth = strikeProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%']
+  });
+
   return (
-    <Animated.View style={[styles.container, { opacity: cardOpacity }]}>
+    <Animated.View style={[styles.container, { opacity: cardOpacity, transform: [{ scale: cardScale }], height: cardHeight }]}>
       {/* Card — no swipe gestures for Expo Go compatibility */}
-      <View style={[styles.card, event.isCompleted && styles.cardCompleted]}>
-        <View style={[styles.colorBar, event.isCompleted && { backgroundColor: Colors.text.muted }]} />
+      <View style={[styles.card, { height: '100%' }]}>
+        <View style={styles.colorBar} />
         <View style={styles.content}>
-          <Text style={[styles.title, event.isCompleted && styles.titleCompleted]} numberOfLines={2}>
-            {event.title}
-          </Text>
-          {timeLabel && (
-            <View style={styles.timeBadge}>
-              <Text style={styles.timeText}>⏰ {timeLabel}</Text>
-            </View>
-          )}
+          <View>
+            <Text style={styles.title} numberOfLines={2}>
+              {event.title}
+            </Text>
+            {/* Animated Strikethrough */}
+            <Animated.View style={[styles.strikethrough, { width: strikeWidth }]} />
+          </View>
+          
+          <View style={styles.badgesRow}>
+            {timeLabel && (
+              <View style={styles.timeBadge}>
+                <Text style={styles.timeText}>⏰ {timeLabel}</Text>
+              </View>
+            )}
+            {event.isRecurring && (
+              <View style={styles.recurringBadge}>
+                <Text style={styles.recurringText}>🔁 Recurrente</Text>
+              </View>
+            )}
+            {event.tags?.map((tag) => (
+              <View key={tag} style={styles.tagBadge}>
+                <Text style={styles.tagText}>#{tag}</Text>
+              </View>
+            ))}
+          </View>
         </View>
         <TouchableOpacity
           style={[styles.checkButton, event.isCompleted && styles.checkCompleted]}
@@ -135,11 +188,11 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.semiBold,
   },
   card: {
+    flex: 1,
     backgroundColor: Colors.dark.surface,
     borderRadius: Radius.md,
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 64,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.dark.surfaceBorder,
@@ -167,9 +220,18 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.medium,
     lineHeight: Typography.size.md * Typography.lineHeight.normal,
   },
-  titleCompleted: {
-    textDecorationLine: 'line-through',
-    color: Colors.text.muted,
+  strikethrough: {
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    height: 2,
+    backgroundColor: Colors.text.muted,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
   },
   timeBadge: {
     flexDirection: 'row',
@@ -179,6 +241,30 @@ const styles = StyleSheet.create({
     color: Colors.brand.primaryLight,
     fontSize: Typography.size.xs,
     fontFamily: Typography.fontFamily.regular,
+  },
+  recurringBadge: {
+    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    borderRadius: Radius.sm,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  recurringText: {
+    color: Colors.brand.accent,
+    fontSize: Typography.size.xs,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  tagBadge: {
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.3)',
+  },
+  tagText: {
+    color: Colors.brand.primaryLight,
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.medium,
   },
   checkButton: {
     width: 28,
