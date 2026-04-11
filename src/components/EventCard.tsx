@@ -17,6 +17,7 @@ const SWIPE_THRESHOLD = 80;
 export default function EventCard({ event }: Props) {
   const updateEventStatus = useAppStore((s) => s.updateEventStatus);
   const deleteEvent = useAppStore((s) => s.deleteEvent);
+  const setActiveEditEventId = useAppStore((s) => s.setActiveEditEventId);
   const haptics = useHaptics();
 
   const [isHidden, setIsHidden] = React.useState(false);
@@ -104,13 +105,21 @@ export default function EventCard({ event }: Props) {
     outputRange: ['0%', '100%']
   });
 
+  const priorityBadge = event.priority === 'high' ? '!!!' : event.priority === 'medium' ? '!!' : event.priority === 'low' ? '!' : null;
+
   return (
     <Animated.View style={[styles.container, { opacity: cardOpacity, transform: [{ scale: cardScale }], height: cardHeight }]}>
-      {/* Card — no swipe gestures for Expo Go compatibility */}
-      <View style={[styles.card, { height: '100%' }]}>
+      <TouchableOpacity 
+        style={[styles.card, { height: '100%' }]}
+        activeOpacity={0.9}
+        onPress={() => setActiveEditEventId(event.id)}
+      >
         <View style={styles.colorBar} />
         <View style={styles.content}>
-          <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {priorityBadge && (
+              <Text style={styles.priorityText}>{priorityBadge} </Text>
+            )}
             <Text style={styles.title} numberOfLines={2}>
               {event.title}
             </Text>
@@ -121,12 +130,17 @@ export default function EventCard({ event }: Props) {
           <View style={styles.badgesRow}>
             {timeLabel && (
               <View style={styles.timeBadge}>
-                <Text style={styles.timeText}>⏰ {timeLabel}</Text>
+                <Text style={styles.timeText}>{timeLabel}</Text>
+              </View>
+            )}
+            {event.area && (
+              <View style={styles.areaBadge}>
+                <Text style={styles.areaText}>{event.area}</Text>
               </View>
             )}
             {event.isRecurring && (
               <View style={styles.recurringBadge}>
-                <Text style={styles.recurringText}>🔁 Recurrente</Text>
+                <Text style={styles.recurringText}>🔁</Text>
               </View>
             )}
             {event.tags?.map((tag) => (
@@ -159,7 +173,7 @@ export default function EventCard({ event }: Props) {
         >
           <Text style={styles.deleteIcon}>✕</Text>
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -230,9 +244,9 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   colorBar: {
-    width: 4,
+    width: 3,
     alignSelf: 'stretch',
-    backgroundColor: Colors.brand.primary,
+    backgroundColor: Colors.dark.surfaceBorder,
     borderTopLeftRadius: Radius.md,
     borderBottomLeftRadius: Radius.md,
   },
@@ -248,11 +262,16 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.medium,
     lineHeight: Typography.size.md * Typography.lineHeight.normal,
   },
+  priorityText: {
+    color: Colors.brand.danger, // Apple Red
+    fontSize: Typography.size.md,
+    fontFamily: Typography.fontFamily.bold,
+  },
   strikethrough: {
     position: 'absolute',
     top: '50%',
     left: 0,
-    height: 2,
+    height: 1,
     backgroundColor: Colors.text.muted,
   },
   badgesRow: {
@@ -266,31 +285,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeText: {
-    color: Colors.brand.primaryLight,
+    color: Colors.text.muted,
     fontSize: Typography.size.xs,
-    fontFamily: Typography.fontFamily.regular,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  areaBadge: {
+    backgroundColor: Colors.dark.surfaceBorder,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  areaText: {
+    color: Colors.text.secondary,
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.semiBold,
+    textTransform: 'uppercase',
   },
   recurringBadge: {
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    paddingHorizontal: 2,
+  },
+  recurringText: {
+    fontSize: 10,
+  },
+  tagBadge: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.dark.surfaceBorder,
     borderRadius: Radius.sm,
     paddingHorizontal: 4,
     paddingVertical: 2,
   },
-  recurringText: {
-    color: Colors.brand.accent,
-    fontSize: Typography.size.xs,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  tagBadge: {
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
-    borderRadius: Radius.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.3)',
-  },
   tagText: {
-    color: Colors.brand.primaryLight,
+    color: Colors.text.muted,
     fontSize: 10,
     fontFamily: Typography.fontFamily.medium,
   },

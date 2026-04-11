@@ -3,50 +3,46 @@
 // ============================================================
 
 export const Colors = {
-  // Brand palette — deep violet / indigo / electric purple
   brand: {
-    primary: '#7C3AED',    // Violet-600
-    primaryLight: '#A78BFA', // Violet-400
-    primaryDark: '#5B21B6',  // Violet-800
-    accent: '#10B981',       // Emerald-500 (success / pet happy)
-    accentLight: '#34D399',
-    danger: '#EF4444',       // Red-500
-    warning: '#F59E0B',      // Amber-500
+    primary: '#007AFF',    // Apple Blue
+    primaryLight: '#47A1FF', 
+    primaryDark: '#005CC8',
+    accent: '#34C759',       // Apple Green (Success)
+    accentLight: '#30D158',
+    danger: '#FF3B30',       // Apple Red
+    warning: '#FF9500',      // Apple Orange
   },
 
-  // Dark background layers (Bento Box)
+  // Dark background layers (True Black)
   dark: {
-    bg: '#0F0F14',          // Almost black
-    surface: '#18181F',     // Card surface
-    surfaceHigh: '#21212B', // Elevated card
-    surfaceBorder: '#2E2E3C',
-    overlay: 'rgba(15,15,20,0.85)',
+    bg: '#000000',          // True black
+    surface: '#121212',     // Barely gray
+    surfaceHigh: '#1C1C1E', // Apple standard dark elevated
+    surfaceBorder: '#282828', // Subtle border
+    overlay: 'rgba(0,0,0,0.85)',
   },
 
-  // Text
   text: {
-    primary: '#F4F4F8',
-    secondary: '#9CA3AF',
-    muted: '#6B7280',
-    inverse: '#0F0F14',
+    primary: '#FFFFFF',
+    secondary: '#A1A1A1',   // Subtitles
+    muted: '#636366',       // Apple System Gray 3
+    inverse: '#000000',
   },
 
-  // Semantic
-  success: '#10B981',
-  error: '#EF4444',
-  warning: '#F59E0B',
-  info: '#3B82F6',
+  success: '#34C759',
+  error: '#FF3B30',
+  warning: '#FF9500',
+  info: '#007AFF',
 
-  // Gradients (as arrays for LinearGradient)
+  // Gradients fallback to flat colors to avoid neon
   gradients: {
-    magic: ['#7C3AED', '#A855F7', '#EC4899'] as const,
-    card: ['#18181F', '#21212B'] as const,
-    pet: ['#5B21B6', '#7C3AED'] as const,
+    magic: ['#121212', '#121212'] as const,
+    card: ['#121212', '#121212'] as const,
+    pet: ['#000000', '#000000'] as const,
   },
 
-  // Glass effect
-  glass: 'rgba(124, 58, 237, 0.12)',
-  glassBorder: 'rgba(124, 58, 237, 0.3)',
+  glass: 'rgba(255, 255, 255, 0.05)',
+  glassBorder: 'rgba(255, 255, 255, 0.1)',
 };
 
 export const Spacing = {
@@ -60,36 +56,37 @@ export const Spacing = {
 };
 
 export const Radius = {
-  sm: 10,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  sm: 8,
+  md: 12,
+  lg: 18,
+  xl: 24,
   full: 9999,
 };
 
 export const Shadows = {
   card: {
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   input: {
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   pet: {
-    shadowColor: '#A78BFA',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
 };
+
 
 export const Typography = {
   fontFamily: {

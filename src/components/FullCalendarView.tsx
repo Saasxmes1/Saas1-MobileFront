@@ -29,27 +29,40 @@ interface Props {
 export default function FullCalendarView({ selectedDate, onSelectDate }: Props) {
   const events = useAppStore((s) => s.events);
 
-  // Derivar markedDates dinámicamente
+  // Derivar markedDates dinámicamente con Dots de Carga
   const markedDates = useMemo(() => {
     const marks: any = {};
+    const eventsPerDay: Record<string, typeof events> = {};
 
+    // Agrupar
     events.forEach(event => {
-      // Omitimos marcar tareas finalizadas para mantener el calendario limpio o las marcamos en gris?
-      // Las tareas completadas aportan "racha", vamos a mostrarlas.
-      if (!marks[event.dayKey]) {
-        marks[event.dayKey] = {
-          marked: true,
-          dotColor: event.status === 'listo' ? Colors.text.muted : Colors.brand.primaryLight,
-        };
+      if (!eventsPerDay[event.dayKey]) eventsPerDay[event.dayKey] = [];
+      eventsPerDay[event.dayKey].push(event);
+    });
+
+    // Crear dots (máx 3 para legibilidad)
+    Object.keys(eventsPerDay).forEach(dayKey => {
+      const dayEvents = eventsPerDay[dayKey];
+      const pendingCount = dayEvents.filter(e => e.status !== 'listo').length;
+      
+      let dots = [];
+      for (let i = 0; i < Math.min(pendingCount, 3); i++) {
+        dots.push({ key: `dot-${i}`, color: Colors.brand.primary });
       }
+
+      // Si todo está completado pero hay eventos, mostramos 1 gris
+      if (pendingCount === 0 && dayEvents.length > 0) {
+        dots.push({ key: 'done', color: Colors.text.muted });
+      }
+
+      marks[dayKey] = { dots };
     });
 
     if (selectedDate) {
-      // Fusionar o sobreescribir con el styling del seleccionado
       if (marks[selectedDate]) {
-        marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: 'rgba(124, 58, 237, 0.4)' };
+        marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: '#FFFFFF' };
       } else {
-        marks[selectedDate] = { selected: true, selectedColor: 'rgba(124, 58, 237, 0.4)' };
+        marks[selectedDate] = { selected: true, selectedColor: '#FFFFFF' };
       }
     }
 
@@ -73,18 +86,18 @@ export default function FullCalendarView({ selectedDate, onSelectDate }: Props) 
           onDayPress={(day: any) => {
             onSelectDate(day.dateString === selectedDate ? null : day.dateString);
           }}
-          markedDates={markedDates}
+          markingType="multi-dot"
           theme={{
             backgroundColor: 'transparent',
             calendarBackground: 'transparent',
             textSectionTitleColor: Colors.text.muted,
-            selectedDayBackgroundColor: 'rgba(124, 58, 237, 0.4)',
-            selectedDayTextColor: Colors.text.primary,
-            todayTextColor: Colors.brand.accentLight,
+            selectedDayBackgroundColor: '#FFFFFF',
+            selectedDayTextColor: '#000000',
+            todayTextColor: Colors.brand.primary,
             dayTextColor: Colors.text.primary,
             textDisabledColor: Colors.text.muted + '40',
-            dotColor: Colors.brand.primaryLight,
-            selectedDotColor: Colors.text.primary,
+            dotColor: Colors.brand.primary,
+            selectedDotColor: '#000000',
             arrowColor: Colors.text.secondary,
             monthTextColor: Colors.text.primary,
             textDayFontFamily: Typography.fontFamily.medium,

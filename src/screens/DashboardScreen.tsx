@@ -19,21 +19,19 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import MagicInput from '../components/MagicInput';
-import PetCompanion, { type PetCompanionRef } from '../components/PetCompanion';
 import TimelineList from '../components/TimelineList';
 import AdBanner from '../components/AdBanner';
 import DailySuccessCard from '../components/DailySuccessCard';
 import FullCalendarView from '../components/FullCalendarView';
+import EventBottomSheet from '../components/ui/EventBottomSheet';
 import { useAppStore } from '../store/useAppStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { requestNotificationPermissions } from '../services/notifications';
 import { Colors, Spacing, Typography } from '../constants/theme';
 
 export default function DashboardScreen() {
-  const petRef = useRef<PetCompanionRef>(null);
   const listRef = useRef<SectionList>(null);
   const navigation = useNavigation<any>();
-  const petEnabled = useAppStore((s) => s.preferences.petEnabled);
   const isPremium = useSubscriptionStore((s) => s.isPremium);
   const events = useAppStore((s) => s.events);
   
@@ -80,17 +78,20 @@ export default function DashboardScreen() {
   const dateLabel = format(now, "EEEE, d 'de' MMMM", { locale: es });
   const capitalizedDate = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
 
+  const progressPct = progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.dark.bg} />
 
-      <LinearGradient
-        colors={['#12101A', '#0F0F14']}
-        style={StyleSheet.absoluteFillObject}
-      />
-
       <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* 2px Progress Bar (Expert Level Suggestion) */}
+        <View style={styles.progressBarBg}>
+          <View style={[styles.progressBarFill, { width: `${progressPct}%` }]} />
+        </View>
+
         <KeyboardAvoidingView
+
           style={styles.keyboardAvoid}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
@@ -110,16 +111,6 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* Pet Companion */}
-          {petEnabled && (
-            <View style={styles.petContainer}>
-              <PetCompanion ref={petRef} size={100} />
-            </View>
-          )}
-
-          {/* Magic Input */}
-          <MagicInput petRef={petRef} onEventAdded={handleEventAdded} />
-
           {/* Daily Success - Only show if all tasks for today are completed */}
           {showSuccessCard && <DailySuccessCard />}
 
@@ -134,9 +125,17 @@ export default function DashboardScreen() {
             <TimelineList listRef={listRef as any} filterDayKey={selectedDateFilter} />
           </View>
 
+          {/* Magic Input Floats ALWAYS at bottom */}
+          <View style={styles.floatingInput}>
+            <MagicInput onEventAdded={handleEventAdded} />
+          </View>
+
           {/* Ad Banner */}
           <AdBanner onUpgradePress={handleUpgrade} />
         </KeyboardAvoidingView>
+
+        <EventBottomSheet />
+
       </SafeAreaView>
     </View>
   );
@@ -147,7 +146,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.bg,
   },
+  progressBarBg: {
+    height: 2,
+    backgroundColor: Colors.dark.surfaceBorder,
+    width: '100%',
+  },
+  progressBarFill: {
+    height: 2,
+    backgroundColor: Colors.brand.primary,
+  },
   safeArea: {
+
     flex: 1,
   },
   keyboardAvoid: {
@@ -188,11 +197,13 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xs,
     fontFamily: Typography.fontFamily.bold,
   },
-  petContainer: {
-    alignItems: 'center',
-    paddingVertical: Spacing.sm,
-  },
   timelineContainer: {
     flex: 1,
   },
+  floatingInput: {
+    backgroundColor: Colors.dark.bg,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.surfaceBorder,
+  }
 });

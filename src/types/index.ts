@@ -13,6 +13,8 @@ export interface Event {
   dayKey: string; // YYYY-MM-DD for grouping
   tags?: string[];
   isRecurring?: boolean;
+  area?: string;
+  priority?: 'low' | 'medium' | 'high';
 }
 
 export interface JournalNote {
@@ -41,6 +43,8 @@ export interface ParsedInput {
   tags?: string[];
   isRecurring?: boolean;
   earlyAlertAt?: Date | null;
+  area?: string;
+  priority?: 'low' | 'medium' | 'high';
 }
 
 export interface SectionData {

@@ -25,6 +25,9 @@ export interface AppState {
   journalNotes: JournalNote[];
   preferences: UserPreferences;
 
+  // Event transient UI state
+  activeEditEventId: string | null;
+
   // Event actions
   addEvent: (
     title: string,
@@ -32,12 +35,16 @@ export interface AppState {
     scheduledAt: Date | null,
     dayKey: string,
     tags?: string[],
-    isRecurring?: boolean
+    isRecurring?: boolean,
+    area?: string,
+    priority?: 'low' | 'medium' | 'high'
   ) => Event;
   updateEventStatus: (id: string, newStatus: 'sin-empezar' | 'en-curso' | 'listo') => void;
+  updateEventProperties: (id: string, partial: Partial<Event>) => void;
   deleteEvent: (id: string) => void;
   updateEventNotification: (id: string, notificationIds: string[]) => void;
   clearCompletedEvents: () => void;
+  setActiveEditEventId: (id: string | null) => void;
 
   // Journal actions
   upsertJournalNote: (dayKey: string, content: string) => void;
@@ -86,9 +93,11 @@ export const useAppStore = create<AppState>()(
         hapticEnabled: true,
       },
 
+      activeEditEventId: null,
+
       // ── Event Actions ──────────────────────────────────────────
 
-      addEvent: (title, rawInput, scheduledAt, dayKey, tags, isRecurring) => {
+      addEvent: (title, rawInput, scheduledAt, dayKey, tags, isRecurring, area, priority) => {
         const newEvent: Event = {
           id: generateId(),
           title,
@@ -100,6 +109,8 @@ export const useAppStore = create<AppState>()(
           dayKey,
           tags: tags || [],
           isRecurring: !!isRecurring,
+          area,
+          priority,
         };
 
         set((state) => ({
@@ -113,6 +124,14 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           events: state.events.map((e) =>
             e.id === id ? { ...e, status: newStatus } : e
+          ),
+        }));
+      },
+
+      updateEventProperties: (id, partial) => {
+        set((state) => ({
+          events: state.events.map((e) =>
+            e.id === id ? { ...e, ...partial } : e
           ),
         }));
       },
@@ -135,6 +154,10 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           events: state.events.filter((e) => e.status !== 'listo'),
         }));
+      },
+
+      setActiveEditEventId: (id) => {
+        set({ activeEditEventId: id });
       },
 
       // ── Journal Actions ────────────────────────────────────────

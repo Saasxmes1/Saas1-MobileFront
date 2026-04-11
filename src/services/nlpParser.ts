@@ -105,6 +105,30 @@ export function parseNaturalInput(rawText: string): ParsedInput {
     textToParse = textToParse.replace(alertRegex, '').trim();
   }
 
+  // 4. Area detection (/area)
+  let area: string | undefined = undefined;
+  const areaRegex = new RegExp('(?:^|\\\\s)/([a-zA-ZáéíóúÁÉÍÓÚñÑ_]+)', 'g');
+  let areaMatch;
+  // Get the last mentioned area
+  while ((areaMatch = areaRegex.exec(textToParse)) !== null) {
+    area = areaMatch[1].toLowerCase();
+    area = area.charAt(0).toUpperCase() + area.slice(1); // Capitalize
+  }
+  textToParse = textToParse.replace(areaRegex, '').trim();
+
+  // 5. Priority detection (!!!)
+  let priority: 'low' | 'medium' | 'high' | undefined = undefined;
+  if (/\\s!!!(\\s|$)/.test(textToParse) || /^!!!(\\s|$)/.test(textToParse)) {
+    priority = 'high';
+    textToParse = textToParse.replace(new RegExp('(?:^|\\\\s)!!!(?:\\\\s|$)', 'g'), ' ').trim();
+  } else if (/\\s!!(\\s|$)/.test(textToParse) || /^!!(\\s|$)/.test(textToParse)) {
+    priority = 'medium';
+    textToParse = textToParse.replace(new RegExp('(?:^|\\\\s)!!(?:\\\\s|$)', 'g'), ' ').trim();
+  } else if (/\\s!(\\s|$)/.test(textToParse) || /^!(\\s|$)/.test(textToParse)) {
+    priority = 'low';
+    textToParse = textToParse.replace(new RegExp('(?:^|\\\\s)!(?:\\\\s|$)', 'g'), ' ').trim();
+  }
+
   if (!textToParse) {
     const now = new Date();
     return {
@@ -115,6 +139,8 @@ export function parseNaturalInput(rawText: string): ParsedInput {
       tags,
       isRecurring,
       earlyAlertAt: null,
+      area,
+      priority,
     };
   }
 
@@ -152,6 +178,8 @@ export function parseNaturalInput(rawText: string): ParsedInput {
         tags,
         isRecurring,
         earlyAlertAt,
+        area,
+        priority,
       };
     }
   }
@@ -168,6 +196,8 @@ export function parseNaturalInput(rawText: string): ParsedInput {
     tags,
     isRecurring,
     earlyAlertAt: null,
+    area,
+    priority,
   };
 }
 

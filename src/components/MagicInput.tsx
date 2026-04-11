@@ -20,14 +20,11 @@ import { scheduleEventReminder } from '../services/notifications';
 import { useAppStore } from '../store/useAppStore';
 import { useHaptics } from '../hooks/useHaptics';
 import { Colors, Spacing, Radius, Typography, Shadows } from '../constants/theme';
-import type { PetCompanionRef } from './PetCompanion';
-
 interface Props {
-  petRef?: React.RefObject<PetCompanionRef | null>;
   onEventAdded?: () => void;
 }
 
-export default function MagicInput({ petRef, onEventAdded }: Props) {
+export default function MagicInput({ onEventAdded }: Props) {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -105,7 +102,6 @@ export default function MagicInput({ petRef, onEventAdded }: Props) {
     if (!trimmed) {
       haptics.notificationError();
       triggerShake();
-      petRef?.current?.playSad();
       showStatus('Escribe algo primero 👀', true);
       return;
     }
@@ -123,7 +119,9 @@ export default function MagicInput({ petRef, onEventAdded }: Props) {
       parsed.scheduledAt,
       parsed.dayKey,
       parsed.tags,
-      parsed.isRecurring
+      parsed.isRecurring,
+      parsed.area,
+      parsed.priority
     );
 
     Keyboard.dismiss();
@@ -132,7 +130,6 @@ export default function MagicInput({ petRef, onEventAdded }: Props) {
     Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
 
     haptics.notificationSuccess();
-    petRef?.current?.playSuccess();
 
     const isToday = parsed.dayKey === new Date().toISOString().slice(0, 10);
     const msg =
@@ -152,7 +149,7 @@ export default function MagicInput({ petRef, onEventAdded }: Props) {
     }
   }, [
     text, addEvent, updateEventNotification, reminderMinutes,
-    haptics, petRef, showStatus, triggerShake, submitScale,
+    haptics, showStatus, triggerShake, submitScale,
     borderAnim, onEventAdded,
   ]);
 
