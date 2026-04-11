@@ -2,8 +2,9 @@
 // NLP PARSER SERVICE — chrono-node (Spanish)
 // ============================================================
 import * as chrono from 'chrono-node';
-import { format, startOfDay, isValid } from 'date-fns';
+import { format, startOfDay, isValid, subDays, subHours, subMinutes } from 'date-fns';
 import type { ParsedInput } from '../types';
+
 
 /**
  * Spanish date-time tokens to strip from the raw title
@@ -91,6 +92,19 @@ export function parseNaturalInput(rawText: string): ParsedInput {
     textToParse = textToParse.replace(recurrenceRegex, '').trim();
   }
 
+  // 3. Early Alert detection (avisar X tiempo antes)
+  const alertRegex = /\\bavisar\s+(\d+)\s+(dí?a|hora|minuto)s?\s+antes\\b/i;
+  let earlyAlertAt: Date | null = null;
+  let alertMatchData: { amount: number; unit: string } | null = null;
+  const alertMatch = alertRegex.exec(textToParse);
+  if (alertMatch) {
+    alertMatchData = {
+      amount: parseInt(alertMatch[1], 10),
+      unit: alertMatch[2].toLowerCase(),
+    };
+    textToParse = textToParse.replace(alertRegex, '').trim();
+  }
+
   if (!textToParse) {
     const now = new Date();
     return {
@@ -100,6 +114,7 @@ export function parseNaturalInput(rawText: string): ParsedInput {
       dayKey: format(now, 'yyyy-MM-dd'),
       tags,
       isRecurring,
+      earlyAlertAt: null,
     };
   }
 
@@ -123,6 +138,12 @@ export function parseNaturalInput(rawText: string): ParsedInput {
     const parsedDate = results[0].start.date();
 
     if (isValid(parsedDate)) {
+      if (alertMatchData) {
+        if (alertMatchData.unit.startsWith('d')) earlyAlertAt = subDays(parsedDate, alertMatchData.amount);
+        else if (alertMatchData.unit.startsWith('h')) earlyAlertAt = subHours(parsedDate, alertMatchData.amount);
+        else if (alertMatchData.unit.startsWith('m')) earlyAlertAt = subMinutes(parsedDate, alertMatchData.amount);
+      }
+
       return {
         title: cleanTitle,
         scheduledAt: parsedDate,
@@ -130,6 +151,7 @@ export function parseNaturalInput(rawText: string): ParsedInput {
         dayKey: format(parsedDate, 'yyyy-MM-dd'),
         tags,
         isRecurring,
+        earlyAlertAt,
       };
     }
   }
@@ -145,6 +167,7 @@ export function parseNaturalInput(rawText: string): ParsedInput {
     dayKey: format(todayStart, 'yyyy-MM-dd'),
     tags,
     isRecurring,
+    earlyAlertAt: null,
   };
 }
 

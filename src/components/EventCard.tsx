@@ -15,16 +15,17 @@ interface Props {
 const SWIPE_THRESHOLD = 80;
 
 export default function EventCard({ event }: Props) {
-  const completeEvent = useAppStore((s) => s.completeEvent);
+  const updateEventStatus = useAppStore((s) => s.updateEventStatus);
   const deleteEvent = useAppStore((s) => s.deleteEvent);
   const haptics = useHaptics();
 
   const [isHidden, setIsHidden] = React.useState(false);
+  const [localStatus, setLocalStatus] = React.useState(event.status);
 
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardScale = useRef(new Animated.Value(1)).current;
   const cardHeight = useRef(new Animated.Value(64)).current; // Base height initially
-  const strikeProgress = useRef(new Animated.Value(event.isCompleted ? 1 : 0)).current;
+  const strikeProgress = useRef(new Animated.Value(event.status === 'listo' ? 1 : 0)).current;
 
   const formatTime = (isoString: string | null) => {
     if (!isoString) return null;
@@ -35,32 +36,50 @@ export default function EventCard({ event }: Props) {
     return format(d, 'h:mm a', { locale: es });
   };
 
-  const handleComplete = useCallback(() => {
-    if (event.isCompleted) return; // Prevent double trigger
+  const handleStatusCycle = useCallback(() => {
+    if (localStatus === 'listo') return; // Prevent double trigger
     
-    haptics.impactLight(); // 1. Initial haptic feedback
+    // Cycle: sin-empezar -> en-curso
+    if (localStatus === 'sin-empezar') {
+      haptics.impactLight();
+      setLocalStatus('en-curso');
+      updateEventStatus(event.id, 'en-curso');
+      return;
+    }
 
-    // 2. Animate Strikethrough and Pulse
-    Animated.parallel([
-      Animated.sequence([
-        Animated.timing(cardScale, { toValue: 1.02, duration: 150, useNativeDriver: false }),
-        Animated.timing(cardScale, { toValue: 1, duration: 150, useNativeDriver: false }),
-      ]),
-      Animated.timing(strikeProgress, { toValue: 1, duration: 300, useNativeDriver: false }) // false so we can interpolate width
-    ]).start(() => {
-      // 3. Wait 600ms
-      setTimeout(() => {
-        // 4. Fade out and height collapse
-        Animated.parallel([
-          Animated.timing(cardOpacity, { toValue: 0, duration: 300, useNativeDriver: false }), // false for height
-          Animated.timing(cardHeight, { toValue: 0, duration: 300, useNativeDriver: false }),
-        ]).start(() => {
-          setIsHidden(true); // Hide component fully
-          completeEvent(event.id); // 5. Update Zustand
-        });
-      }, 600);
-    });
-  }, [completeEvent, event.id, haptics, cardScale, strikeProgress, cardOpacity, cardHeight, event.isCompleted]);
+    // Cycle: en-curso -> listo
+    if (localStatus === 'en-curso') {
+      haptics.impactMedium(); // 1. Initial haptic feedback
+      setLocalStatus('listo'); // Visually update immediately
+
+
+      // Cancel Nag Mode local reminders when doing the final completion
+      if (event.notificationIds?.length) {
+        cancelReminder(event.notificationIds).catch(() => {});
+      }
+
+      // 2. Animate Strikethrough and Pulse
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(cardScale, { toValue: 1.02, duration: 150, useNativeDriver: false }),
+          Animated.timing(cardScale, { toValue: 1, duration: 150, useNativeDriver: false }),
+        ]),
+        Animated.timing(strikeProgress, { toValue: 1, duration: 300, useNativeDriver: false })
+      ]).start(() => {
+        // 3. Wait 600ms
+        setTimeout(() => {
+          // 4. Fade out and height collapse
+          Animated.parallel([
+            Animated.timing(cardOpacity, { toValue: 0, duration: 300, useNativeDriver: false }),
+            Animated.timing(cardHeight, { toValue: 0, duration: 300, useNativeDriver: false }),
+          ]).start(() => {
+            setIsHidden(true); // Hide component fully
+            updateEventStatus(event.id, 'listo'); // 5. Update Zustand
+          });
+        }, 600);
+      });
+    }
+  }, [updateEventStatus, event.id, haptics, cardScale, strikeProgress, cardOpacity, cardHeight, event.notificationIds, localStatus]);
 
   const handleDelete = useCallback(() => {
     Animated.parallel([
@@ -68,15 +87,15 @@ export default function EventCard({ event }: Props) {
       Animated.timing(cardHeight, { toValue: 0, duration: 200, useNativeDriver: false }),
     ]).start(() => {
       setIsHidden(true);
-      if (event.notificationId) {
-        cancelReminder(event.notificationId).catch(() => {});
+      if (event.notificationIds?.length) {
+        cancelReminder(event.notificationIds).catch(() => {});
       }
       deleteEvent(event.id);
     });
     haptics.impactHeavy();
-  }, [deleteEvent, event.id, event.notificationId, haptics, cardOpacity, cardHeight]);
+  }, [deleteEvent, event.id, event.notificationIds, haptics, cardOpacity, cardHeight]);
 
-  if (isHidden || event.isCompleted) return null; // Fully hide if removed or already completed in state
+  if (isHidden) return null; // Fully hide if removed or completed animation finishes
 
   const timeLabel = formatTime(event.scheduledAt);
 
@@ -117,13 +136,22 @@ export default function EventCard({ event }: Props) {
             ))}
           </View>
         </View>
+        
+        {/* Status Cyclic Badge */}
         <TouchableOpacity
-          style={[styles.checkButton, event.isCompleted && styles.checkCompleted]}
-          onPress={handleComplete}
+          style={[
+            styles.statusButton, 
+            localStatus === 'en-curso' && styles.statusInProgress,
+            localStatus === 'listo' && styles.statusDone,
+          ]}
+          onPress={handleStatusCycle}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={styles.checkIcon}>{event.isCompleted ? '✓' : ''}</Text>
+          <Text style={[styles.statusIcon, localStatus === 'en-curso' && styles.statusIconProgress]}>
+            {localStatus === 'sin-empezar' ? '' : localStatus === 'en-curso' ? '▶' : '✓'}
+          </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={handleDelete}
@@ -266,9 +294,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: Typography.fontFamily.medium,
   },
-  checkButton: {
-    width: 28,
-    height: 28,
+  statusButton: {
+    width: 32,
+    height: 32,
     borderRadius: Radius.full,
     borderWidth: 2,
     borderColor: Colors.dark.surfaceBorder,
@@ -277,14 +305,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
   },
-  checkCompleted: {
+  statusInProgress: {
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  statusDone: {
     backgroundColor: Colors.brand.accent,
     borderColor: Colors.brand.accent,
   },
-  checkIcon: {
+  statusIcon: {
     color: 'white',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+  },
+  statusIconProgress: {
+    color: '#F59E0B',
+    fontSize: 12,
+    marginLeft: 2,
   },
   deleteButton: {
     width: 32,

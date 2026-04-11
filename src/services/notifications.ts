@@ -33,60 +33,76 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 }
 
 /**
- * Schedule a local notification reminder for an event.
- * Fires `minutesBefore` minutes before the event's scheduledAt time.
- * Returns the notification identifier, or null if it couldn't be scheduled.
+ * Schedule local notification reminders for an event.
+ * Returns the notification identifiers.
  */
 export async function scheduleEventReminder(
   event: Event,
-  minutesBefore: number = 15
-): Promise<string | null> {
-  if (!event.scheduledAt) return null;
+  minutesBefore: number = 15,
+  earlyAlertAt?: Date | null
+): Promise<string[]> {
+  if (!event.scheduledAt) return [];
 
   const scheduledDate = new Date(event.scheduledAt);
-  if (!isValid(scheduledDate)) return null;
+  if (!isValid(scheduledDate)) return [];
 
-  const triggerDate = subMinutes(scheduledDate, minutesBefore);
   const now = new Date();
+  const notificationIds: string[] = [];
 
-  // Only schedule if trigger time is in the future
-  if (!isAfter(triggerDate, now)) {
-    return null;
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return [];
+
+  const scheduleNotification = async (triggerDate: Date, titlePre: string) => {
+    if (!isAfter(triggerDate, now)) return;
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: titlePre,
+          body: event.title,
+          sound: true,
+          data: { eventId: event.id },
+          ...(Platform.OS === 'android' && {
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+          }),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: triggerDate,
+        },
+      });
+      notificationIds.push(id);
+    } catch (error) {
+      console.warn('[Notifications] Error scheduling reminder:', error);
+    }
+  };
+
+  // 1. Early Alert (from NLP)
+  if (earlyAlertAt) {
+    await scheduleNotification(earlyAlertAt, '⚠️ Alerta Temprana');
   }
 
-  try {
-    const hasPermission = await requestNotificationPermissions();
-    if (!hasPermission) return null;
+  // 2. Standard Reminder
+  const triggerDate = subMinutes(scheduledDate, minutesBefore);
+  await scheduleNotification(triggerDate, '⏰ Recordatorio');
 
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '⏰ Recordatorio',
-        body: event.title,
-        sound: true, // Use system default sound
-        data: { eventId: event.id },
-        ...(Platform.OS === 'android' && {
-          priority: Notifications.AndroidNotificationPriority.HIGH,
-        }),
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: triggerDate,
-      },
-    });
-
-    return notificationId;
-  } catch (error) {
-    console.warn('[Notifications] Error scheduling reminder:', error);
-    return null;
+  // 3. Nag Mode (4 hourly reminders AFTER scheduled time)
+  for (let i = 1; i <= 4; i++) {
+    const nagDate = new Date(scheduledDate.getTime() + i * 60 * 60 * 1000);
+    await scheduleNotification(nagDate, `❗️ Insistimos: ¿Ya lo hiciste?`);
   }
+
+  return notificationIds;
 }
 
+
 /**
- * Cancel a previously scheduled notification by its identifier.
+ * Cancel previously scheduled notifications by their identifiers.
  */
-export async function cancelReminder(notificationId: string): Promise<void> {
+export async function cancelReminder(notificationIds: string[]): Promise<void> {
   try {
-    await Notifications.cancelScheduledNotificationAsync(notificationId);
+    for (const id of notificationIds) {
+      if (id) await Notifications.cancelScheduledNotificationAsync(id);
+    }
   } catch (error) {
     console.warn('[Notifications] Error canceling reminder:', error);
   }

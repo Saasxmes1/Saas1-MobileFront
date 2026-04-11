@@ -7,8 +7,8 @@ export interface Event {
   title: string;
   rawInput: string;
   scheduledAt: string | null; // ISO string (serializable for Zustand persist)
-  notificationId?: string | null;
-  isCompleted: boolean;
+  notificationIds?: string[];
+  status: 'sin-empezar' | 'en-curso' | 'listo';
   createdAt: string; // ISO string
   dayKey: string; // YYYY-MM-DD for grouping
   tags?: string[];
@@ -40,6 +40,7 @@ export interface ParsedInput {
   dayKey: string; // YYYY-MM-DD
   tags?: string[];
   isRecurring?: boolean;
+  earlyAlertAt?: Date | null;
 }
 
 export interface SectionData {

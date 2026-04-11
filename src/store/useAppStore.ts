@@ -34,9 +34,9 @@ export interface AppState {
     tags?: string[],
     isRecurring?: boolean
   ) => Event;
-  completeEvent: (id: string) => void;
+  updateEventStatus: (id: string, newStatus: 'sin-empezar' | 'en-curso' | 'listo') => void;
   deleteEvent: (id: string) => void;
-  updateEventNotification: (id: string, notificationId: string | null) => void;
+  updateEventNotification: (id: string, notificationIds: string[]) => void;
   clearCompletedEvents: () => void;
 
   // Journal actions
@@ -94,8 +94,8 @@ export const useAppStore = create<AppState>()(
           title,
           rawInput,
           scheduledAt: scheduledAt ? scheduledAt.toISOString() : null,
-          notificationId: null,
-          isCompleted: false,
+          notificationIds: [],
+          status: 'sin-empezar',
           createdAt: new Date().toISOString(),
           dayKey,
           tags: tags || [],
@@ -109,10 +109,10 @@ export const useAppStore = create<AppState>()(
         return newEvent;
       },
 
-      completeEvent: (id) => {
+      updateEventStatus: (id, newStatus) => {
         set((state) => ({
           events: state.events.map((e) =>
-            e.id === id ? { ...e, isCompleted: !e.isCompleted } : e
+            e.id === id ? { ...e, status: newStatus } : e
           ),
         }));
       },
@@ -123,17 +123,17 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      updateEventNotification: (id, notificationId) => {
+      updateEventNotification: (id, notificationIds) => {
         set((state) => ({
           events: state.events.map((e) =>
-            e.id === id ? { ...e, notificationId } : e
+            e.id === id ? { ...e, notificationIds } : e
           ),
         }));
       },
 
       clearCompletedEvents: () => {
         set((state) => ({
-          events: state.events.filter((e) => !e.isCompleted),
+          events: state.events.filter((e) => e.status !== 'listo'),
         }));
       },
 

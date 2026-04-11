@@ -32,10 +32,11 @@ function getDayLabel(dayKey: string): string {
   return `${dayNames[date.getDay()]} ${day} de ${monthNames[month - 1]}`;
 }
 
-function buildSections(events: Event[]): SectionData[] {
+function buildSections(events: Event[], filterDayKey?: string | null): SectionData[] {
   const grouped: Record<string, Event[]> = {};
   for (const event of events) {
-    if (event.isCompleted) continue; // Hide completed events from timeline
+    if (event.status === 'listo') continue; // Hide completed events from timeline
+    if (filterDayKey && event.dayKey !== filterDayKey) continue; // Filter by Calendar
     if (!grouped[event.dayKey]) grouped[event.dayKey] = [];
     grouped[event.dayKey].push(event);
   }
@@ -92,16 +93,18 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
 // ── Main component ─────────────────────────────────────────
 export default function TimelineList({
   listRef,
+  filterDayKey,
   onScroll,
 }: {
   listRef?: React.RefObject<SectionList<Event, SectionData> | null>;
+  filterDayKey?: string | null;
   onScroll?: (event: any) => void;
 }) {
   // ✅ Seleccionar el array primitivo (referencia estable en Zustand v5)
   const events = useAppStore((s) => s.events);
 
   // ✅ Calcular secciones en useMemo — solo recalcula cuando events cambia
-  const sections = useMemo(() => buildSections(events), [events]);
+  const sections = useMemo(() => buildSections(events, filterDayKey), [events, filterDayKey]);
 
   const [refreshing, setRefreshing] = React.useState(false);
 

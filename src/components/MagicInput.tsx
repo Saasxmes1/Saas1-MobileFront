@@ -144,9 +144,9 @@ export default function MagicInput({ petRef, onEventAdded }: Props) {
     onEventAdded?.();
 
     if (newEvent.scheduledAt) {
-      scheduleEventReminder(newEvent, reminderMinutes)
-        .then((notifId) => {
-          if (notifId) updateEventNotification(newEvent.id, notifId);
+      scheduleEventReminder(newEvent, reminderMinutes, parsed.earlyAlertAt)
+        .then((notifIds) => {
+          if (notifIds && notifIds.length > 0) updateEventNotification(newEvent.id, notifIds);
         })
         .catch(() => {});
     }

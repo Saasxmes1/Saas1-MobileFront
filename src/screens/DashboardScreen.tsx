@@ -23,6 +23,7 @@ import PetCompanion, { type PetCompanionRef } from '../components/PetCompanion';
 import TimelineList from '../components/TimelineList';
 import AdBanner from '../components/AdBanner';
 import DailySuccessCard from '../components/DailySuccessCard';
+import FullCalendarView from '../components/FullCalendarView';
 import { useAppStore } from '../store/useAppStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { requestNotificationPermissions } from '../services/notifications';
@@ -35,11 +36,13 @@ export default function DashboardScreen() {
   const petEnabled = useAppStore((s) => s.preferences.petEnabled);
   const isPremium = useSubscriptionStore((s) => s.isPremium);
   const events = useAppStore((s) => s.events);
+  
+  const [selectedDateFilter, setSelectedDateFilter] = React.useState<string | null>(null);
 
   const progress = React.useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const todayEvents = events.filter((e) => e.dayKey === today);
-    const completed = todayEvents.filter((e) => e.isCompleted).length;
+    const completed = todayEvents.filter((e) => e.status === 'listo').length;
     return { total: todayEvents.length, completed };
   }, [events]);
 
@@ -120,9 +123,15 @@ export default function DashboardScreen() {
           {/* Daily Success - Only show if all tasks for today are completed */}
           {showSuccessCard && <DailySuccessCard />}
 
+          {/* Full Monthly Calendar */}
+          <FullCalendarView 
+            selectedDate={selectedDateFilter} 
+            onSelectDate={setSelectedDateFilter} 
+          />
+
           {/* Timeline */}
           <View style={styles.timelineContainer}>
-            <TimelineList listRef={listRef as any} />
+            <TimelineList listRef={listRef as any} filterDayKey={selectedDateFilter} />
           </View>
 
           {/* Ad Banner */}
