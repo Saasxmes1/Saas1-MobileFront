@@ -54,7 +54,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
 export default function SettingsScreen() {
   const preferences = useAppStore((s: AppState) => s.preferences);
   const updatePreferences = useAppStore((s: AppState) => s.updatePreferences);
-  const clearCompletedEvents = useAppStore((s: AppState) => s.clearCompletedEvents);
+  const clearCompletedTasks = useAppStore((s: AppState) => s.clearCompletedTasks);
 
   const isPremium = useSubscriptionStore((s: SubscriptionState) => s.isPremium);
   const setIsPremium = useSubscriptionStore((s: SubscriptionState) => s.setIsPremium);
@@ -95,7 +95,7 @@ export default function SettingsScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
-            clearCompletedEvents();
+            clearCompletedTasks();
             cancelAllReminders().catch(() => {});
           },
         },

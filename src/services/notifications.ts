@@ -4,7 +4,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { subMinutes, isAfter, isValid } from 'date-fns';
-import type { Event } from '../types';
+import type { Task } from '../types';
 
 // Configure notification handler for foreground display
 Notifications.setNotificationHandler({
@@ -33,17 +33,17 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 }
 
 /**
- * Schedule local notification reminders for an event.
+ * Schedule local notification reminders for a task.
  * Returns the notification identifiers.
  */
 export async function scheduleEventReminder(
-  event: Event,
+  task: Task,
   minutesBefore: number = 15,
   earlyAlertAt?: Date | null
 ): Promise<string[]> {
-  if (!event.scheduledAt) return [];
+  if (!task.dueDate) return [];
 
-  const scheduledDate = new Date(event.scheduledAt);
+  const scheduledDate = new Date(task.dueDate);
   if (!isValid(scheduledDate)) return [];
 
   const now = new Date();
@@ -58,9 +58,9 @@ export async function scheduleEventReminder(
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: titlePre,
-          body: event.title,
+          body: task.title,
           sound: true,
-          data: { eventId: event.id },
+          data: { taskId: task.id },
           ...(Platform.OS === 'android' && {
             priority: Notifications.AndroidNotificationPriority.HIGH,
           }),
@@ -93,7 +93,6 @@ export async function scheduleEventReminder(
 
   return notificationIds;
 }
-
 
 /**
  * Cancel previously scheduled notifications by their identifiers.

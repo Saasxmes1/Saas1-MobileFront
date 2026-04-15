@@ -1,7 +1,5 @@
 // ============================================================
 // TIMELINE LIST — SectionList agrupado por día
-// FIX: Selecciona events (referencia estable) + useMemo para
-// evitar el "getSnapshot infinite loop" de Zustand v5
 // ============================================================
 import React, { useCallback, useMemo } from 'react';
 import {
@@ -14,9 +12,10 @@ import {
 } from 'react-native';
 import { format } from 'date-fns';
 import { useAppStore } from '../store/useAppStore';
-import EventCard from './EventCard';
+import TaskRow from './TaskRow';
 import { Colors, Spacing, Radius, Typography } from '../constants/theme';
-import type { SectionData, Event } from '../types';
+import type { SectionData, Task } from '../types';
+import type { FilterValue } from './FilterBar';
 
 // ── Helpers ────────────────────────────────────────────────
 function getDayLabel(dayKey: string): string {
@@ -32,23 +31,35 @@ function getDayLabel(dayKey: string): string {
   return `${dayNames[date.getDay()]} ${day} de ${monthNames[month - 1]}`;
 }
 
-function buildSections(events: Event[], filterDayKey?: string | null): SectionData[] {
-  const grouped: Record<string, Event[]> = {};
-  for (const event of events) {
-    if (event.status === 'listo') continue; // Hide completed events from timeline
-    if (filterDayKey && event.dayKey !== filterDayKey) continue; // Filter by Calendar
-    if (!grouped[event.dayKey]) grouped[event.dayKey] = [];
-    grouped[event.dayKey].push(event);
+function buildSections(tasks: Task[], filterValue: FilterValue, calendarDay?: string | null): SectionData[] {
+  const grouped: Record<string, Task[]> = {};
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+
+  for (const task of tasks) {
+    if (task.status === 'done' && filterValue !== 'all') continue; 
+    
+    if (calendarDay && task.dayKey !== calendarDay) continue; 
+    
+    if (filterValue === 'today' && task.dayKey !== todayKey) continue;
+    if (filterValue === 'pending' && task.status === 'done') continue;
+    if (filterValue.startsWith('area:')) {
+      const targetArea = filterValue.split(':')[1];
+      if (task.area !== targetArea) continue;
+    }
+
+    if (!grouped[task.dayKey]) grouped[task.dayKey] = [];
+    grouped[task.dayKey].push(task);
   }
+
   return Object.keys(grouped)
     .sort()
     .map((dayKey) => ({
       title: getDayLabel(dayKey),
       dayKey,
       data: grouped[dayKey].sort((a, b) => {
-        if (!a.scheduledAt) return 1;
-        if (!b.scheduledAt) return -1;
-        return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       }),
     }));
 }
@@ -62,12 +73,6 @@ function EmptyState() {
       <Text style={styles.emptySubtitle}>
         Usa el Magic Input de arriba para agregar{'\n'}tu primera tarea o recordatorio.
       </Text>
-      <View style={styles.emptyHintContainer}>
-        <Text style={styles.emptyHint}>💡 Prueba escribir:</Text>
-        <Text style={styles.emptyExample}>"Reunión el viernes a las 10am"</Text>
-        <Text style={styles.emptyExample}>"Comprar leche mañana"</Text>
-        <Text style={styles.emptyExample}>"Examen en 2 horas"</Text>
-      </View>
     </View>
   );
 }
@@ -93,18 +98,19 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
 // ── Main component ─────────────────────────────────────────
 export default function TimelineList({
   listRef,
-  filterDayKey,
+  filterValue,
+  calendarDay,
   onScroll,
 }: {
-  listRef?: React.RefObject<SectionList<Event, SectionData> | null>;
-  filterDayKey?: string | null;
+  listRef?: React.RefObject<SectionList<Task, SectionData> | null>;
+  filterValue: FilterValue;
+  calendarDay?: string | null;
   onScroll?: (event: any) => void;
 }) {
-  // ✅ Seleccionar el array primitivo (referencia estable en Zustand v5)
-  const events = useAppStore((s) => s.events);
+  const tasks = useAppStore((s) => s.tasks);
+  const setActiveEditTaskId = useAppStore((s) => s.setActiveEditTaskId);
 
-  // ✅ Calcular secciones en useMemo — solo recalcula cuando events cambia
-  const sections = useMemo(() => buildSections(events, filterDayKey), [events, filterDayKey]);
+  const sections = useMemo(() => buildSections(tasks, filterValue, calendarDay), [tasks, filterValue, calendarDay]);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -120,12 +126,12 @@ export default function TimelineList({
     []
   );
 
-  const renderItem: SectionListRenderItem<Event, SectionData> = useCallback(
-    ({ item }) => <EventCard event={item} />,
+  const renderItem: SectionListRenderItem<Task, SectionData> = useCallback(
+    ({ item }) => <TaskRow task={item} onPress={() => setActiveEditTaskId(item.id)} />,
     []
   );
 
-  const keyExtractor = useCallback((item: Event) => item.id, []);
+  const keyExtractor = useCallback((item: Task) => item.id, []);
 
   return (
     <SectionList
@@ -161,7 +167,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.xs,
-    backgroundColor: Colors.dark.bg,
+    backgroundColor: Colors.dark.bg, // Notion strict dark
   },
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
   sectionTitle: { color: Colors.text.secondary, fontSize: Typography.size.sm, fontFamily: Typography.fontFamily.semiBold, letterSpacing: 0.5, textTransform: 'uppercase' },
@@ -173,7 +179,4 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 56, marginBottom: Spacing.sm },
   emptyTitle: { color: Colors.text.primary, fontSize: Typography.size.xxl, fontFamily: Typography.fontFamily.bold, textAlign: 'center' },
   emptySubtitle: { color: Colors.text.secondary, fontSize: Typography.size.md, fontFamily: Typography.fontFamily.regular, textAlign: 'center', lineHeight: 22 },
-  emptyHintContainer: { marginTop: Spacing.lg, backgroundColor: Colors.dark.surface, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.dark.surfaceBorder, gap: Spacing.xs, width: '100%' },
-  emptyHint: { color: Colors.brand.primaryLight, fontSize: Typography.size.sm, fontFamily: Typography.fontFamily.semiBold, marginBottom: 4 },
-  emptyExample: { color: Colors.text.muted, fontSize: Typography.size.sm, fontFamily: Typography.fontFamily.regular, fontStyle: 'italic' },
 });

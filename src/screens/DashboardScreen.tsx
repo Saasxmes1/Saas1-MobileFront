@@ -1,7 +1,7 @@
 // ============================================================
-// DASHBOARD SCREEN — Main screen with Magic Input + Timeline
+// DASHBOARD SCREEN — Notion-like Architecture 
 // ============================================================
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -23,7 +22,8 @@ import TimelineList from '../components/TimelineList';
 import AdBanner from '../components/AdBanner';
 import DailySuccessCard from '../components/DailySuccessCard';
 import FullCalendarView from '../components/FullCalendarView';
-import EventBottomSheet from '../components/ui/EventBottomSheet';
+import TaskPageScreen from '../components/ui/TaskPageScreen';
+import FilterBar, { FilterValue } from '../components/FilterBar';
 import { useAppStore } from '../store/useAppStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { requestNotificationPermissions } from '../services/notifications';
@@ -33,16 +33,17 @@ export default function DashboardScreen() {
   const listRef = useRef<SectionList>(null);
   const navigation = useNavigation<any>();
   const isPremium = useSubscriptionStore((s) => s.isPremium);
-  const events = useAppStore((s) => s.events);
+  const tasks = useAppStore((s) => s.tasks);
   
-  const [selectedDateFilter, setSelectedDateFilter] = React.useState<string | null>(null);
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
+  const [selectedTopicFilter, setSelectedTopicFilter] = useState<FilterValue>('all');
 
   const progress = React.useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    const todayEvents = events.filter((e) => e.dayKey === today);
-    const completed = todayEvents.filter((e) => e.status === 'listo').length;
-    return { total: todayEvents.length, completed };
-  }, [events]);
+    const todayTasks = tasks.filter((t) => t.dayKey === today);
+    const completed = todayTasks.filter((t) => t.status === 'done').length;
+    return { total: todayTasks.length, completed };
+  }, [tasks]);
 
   const showSuccessCard = progress.total > 0 && progress.total === progress.completed;
 
@@ -57,8 +58,8 @@ export default function DashboardScreen() {
     navigation.navigate('Settings');
   }, [navigation]);
 
-  const handleEventAdded = useCallback(() => {
-    // Scroll to top to show newly added event
+  const handleTaskAdded = useCallback(() => {
+    // Scroll to top to show newly added task
     listRef.current?.scrollToLocation({
       sectionIndex: 0,
       itemIndex: 0,
@@ -85,13 +86,12 @@ export default function DashboardScreen() {
       <StatusBar barStyle="light-content" backgroundColor={Colors.dark.bg} />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* 2px Progress Bar (Expert Level Suggestion) */}
+        {/* 2px Progress Bar */}
         <View style={styles.progressBarBg}>
           <View style={[styles.progressBarFill, { width: `${progressPct}%` }]} />
         </View>
 
         <KeyboardAvoidingView
-
           style={styles.keyboardAvoid}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
@@ -120,21 +120,32 @@ export default function DashboardScreen() {
             onSelectDate={setSelectedDateFilter} 
           />
 
+          {/* Dynamic Filters */}
+          <FilterBar 
+            selectedFilter={selectedTopicFilter}
+            onSelectFilter={setSelectedTopicFilter}
+          />
+
           {/* Timeline */}
           <View style={styles.timelineContainer}>
-            <TimelineList listRef={listRef as any} filterDayKey={selectedDateFilter} />
+            <TimelineList 
+              listRef={listRef as any} 
+              filterValue={selectedTopicFilter}
+              calendarDay={selectedDateFilter} 
+            />
           </View>
 
           {/* Magic Input Floats ALWAYS at bottom */}
           <View style={styles.floatingInput}>
-            <MagicInput onEventAdded={handleEventAdded} />
+            <MagicInput onEventAdded={handleTaskAdded} />
           </View>
 
           {/* Ad Banner */}
           <AdBanner onUpgradePress={handleUpgrade} />
         </KeyboardAvoidingView>
 
-        <EventBottomSheet />
+        {/* The Notion-style Detail View (Bottom Sheet) */}
+        <TaskPageScreen />
 
       </SafeAreaView>
     </View>
@@ -144,7 +155,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.dark.bg,
+    backgroundColor: Colors.dark.bg, // Strict dark notion bg
   },
   progressBarBg: {
     height: 2,
@@ -156,7 +167,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brand.primary,
   },
   safeArea: {
-
     flex: 1,
   },
   keyboardAvoid: {

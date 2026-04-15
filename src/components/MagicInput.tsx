@@ -39,8 +39,8 @@ export default function MagicInput({ onEventAdded }: Props) {
   const statusOpacity = useRef(new Animated.Value(0)).current;
   const shakeX = useRef(new Animated.Value(0)).current;
 
-  const addEvent = useAppStore((s) => s.addEvent);
-  const updateEventNotification = useAppStore((s) => s.updateEventNotification);
+  const addTask = useAppStore((s) => s.addTask);
+  const updateTaskProperties = useAppStore((s) => s.updateTaskProperties);
   const reminderMinutes = useAppStore((s) => s.preferences.reminderMinutesBefore);
   const haptics = useHaptics();
 
@@ -113,15 +113,13 @@ export default function MagicInput({ onEventAdded }: Props) {
     ]).start();
 
     const parsed = parseNaturalInput(trimmed);
-    const newEvent = addEvent(
+    const dueDateISO = parsed.scheduledAt ? parsed.scheduledAt.toISOString() : null;
+    const newTask = addTask(
       parsed.title,
-      trimmed,
-      parsed.scheduledAt,
-      parsed.dayKey,
-      parsed.tags,
-      parsed.isRecurring,
-      parsed.area,
-      parsed.priority
+      parsed.area || 'Personal',
+      parsed.priority || 'low',
+      dueDateISO,
+      ''
     );
 
     Keyboard.dismiss();
@@ -140,15 +138,17 @@ export default function MagicInput({ onEventAdded }: Props) {
 
     onEventAdded?.();
 
-    if (newEvent.scheduledAt) {
-      scheduleEventReminder(newEvent, reminderMinutes, parsed.earlyAlertAt)
+    if (newTask.dueDate) {
+      scheduleEventReminder(newTask, reminderMinutes, parsed.earlyAlertAt)
         .then((notifIds) => {
-          if (notifIds && notifIds.length > 0) updateEventNotification(newEvent.id, notifIds);
+          if (notifIds && notifIds.length > 0) {
+            updateTaskProperties(newTask.id, { notificationIds: notifIds });
+          }
         })
         .catch(() => {});
     }
   }, [
-    text, addEvent, updateEventNotification, reminderMinutes,
+    text, addTask, updateTaskProperties, reminderMinutes,
     haptics, showStatus, triggerShake, submitScale,
     borderAnim, onEventAdded,
   ]);

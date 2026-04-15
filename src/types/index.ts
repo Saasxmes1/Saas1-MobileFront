@@ -1,20 +1,20 @@
 // ============================================================
-// TYPES — Calendario Gamificado MVP
+// TYPES — Calendario Gamificado MVP -> Notion Architecture
 // ============================================================
 
-export interface Event {
+export interface Task {
   id: string;
   title: string;
-  rawInput: string;
-  scheduledAt: string | null; // ISO string (serializable for Zustand persist)
+  status: 'todo' | 'in-progress' | 'done';
+  area: string; // ej: 'Estudio', 'Personal', 'Trabajo'
+  priority: 'low' | 'medium' | 'high';
+  dueDate: string | null; // ISO string 
+  content: string; // El "interior de la página"
+  
+  // Keep legacy properties if needed for timeline rendering context
+  createdAt: string; 
+  dayKey: string; // YYYY-MM-DD
   notificationIds?: string[];
-  status: 'sin-empezar' | 'en-curso' | 'listo';
-  createdAt: string; // ISO string
-  dayKey: string; // YYYY-MM-DD for grouping
-  tags?: string[];
-  isRecurring?: boolean;
-  area?: string;
-  priority?: 'low' | 'medium' | 'high';
 }
 
 export interface JournalNote {
@@ -50,5 +50,5 @@ export interface ParsedInput {
 export interface SectionData {
   title: string; // display label: "Hoy", "Mañana", "Lunes 12 de Abril"
   dayKey: string; // YYYY-MM-DD
-  data: Event[];
+  data: Task[];
 }

@@ -1,5 +1,5 @@
 // ============================================================
-// ZUSTAND APP STORE — Events + Journal with AsyncStorage
+// ZUSTAND APP STORE — Notion-like Architecture
 // ============================================================
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 
 import { APP_CONFIG } from '../constants/config';
-import type { Event, JournalNote, UserPreferences, SectionData } from '../types';
+import type { Task, JournalNote, UserPreferences, SectionData } from '../types';
 
 // Simple UUID-like ID generator (avoids needing uuid package in Expo Go)
 function generateId(): string {
@@ -21,30 +21,28 @@ function todayKey(): string {
 // ---- State Interfaces ----
 
 export interface AppState {
-  events: Event[];
+  tasks: Task[];
+  events: Task[]; // ALIAS for backward compatibility (PetCompanion)
   journalNotes: JournalNote[];
   preferences: UserPreferences;
 
-  // Event transient UI state
-  activeEditEventId: string | null;
+  // Task transient UI state
+  activeEditTaskId: string | null;
 
-  // Event actions
-  addEvent: (
+  // Task actions
+  addTask: (
     title: string,
-    rawInput: string,
-    scheduledAt: Date | null,
-    dayKey: string,
-    tags?: string[],
-    isRecurring?: boolean,
     area?: string,
-    priority?: 'low' | 'medium' | 'high'
-  ) => Event;
-  updateEventStatus: (id: string, newStatus: 'sin-empezar' | 'en-curso' | 'listo') => void;
-  updateEventProperties: (id: string, partial: Partial<Event>) => void;
-  deleteEvent: (id: string) => void;
-  updateEventNotification: (id: string, notificationIds: string[]) => void;
-  clearCompletedEvents: () => void;
-  setActiveEditEventId: (id: string | null) => void;
+    priority?: 'low' | 'medium' | 'high',
+    dueDate?: string | null,
+    content?: string
+  ) => Task;
+  
+  updateTaskStatus: (id: string, newStatus: 'todo' | 'in-progress' | 'done') => void;
+  updateTaskProperties: (id: string, partial: Partial<Task>) => void;
+  deleteTask: (id: string) => void;
+  clearCompletedTasks: () => void;
+  setActiveEditTaskId: (id: string | null) => void;
 
   // Journal actions
   upsertJournalNote: (dayKey: string, content: string) => void;
@@ -55,27 +53,7 @@ export interface AppState {
   updatePreferences: (partial: Partial<UserPreferences>) => void;
 
   // Selectors
-  getEventsByDay: (dayKey: string) => Event[];
-}
-
-// ---- Label helpers ----
-
-function getDayLabel(dayKey: string): string {
-  const [year, month, day] = dayKey.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  const today = todayKey();
-  const tomorrowKey = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
-
-  if (dayKey === today) return 'Hoy';
-  if (dayKey === tomorrowKey) return 'Mañana';
-
-  const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const monthNames = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-  ];
-
-  return `${dayNames[date.getDay()]} ${day} de ${monthNames[month - 1]}`;
+  getTasksByDay: (dayKey: string) => Task[];
 }
 
 // ---- Store ----
@@ -83,7 +61,8 @@ function getDayLabel(dayKey: string): string {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      events: [],
+      tasks: [],
+      events: [], // Alias array
       journalNotes: [],
       preferences: {
         theme: 'dark',
@@ -93,71 +72,74 @@ export const useAppStore = create<AppState>()(
         hapticEnabled: true,
       },
 
-      activeEditEventId: null,
+      activeEditTaskId: null,
 
-      // ── Event Actions ──────────────────────────────────────────
+      // ── Task Actions ──────────────────────────────────────────
 
-      addEvent: (title, rawInput, scheduledAt, dayKey, tags, isRecurring, area, priority) => {
-        const newEvent: Event = {
+      addTask: (title, area = 'Personal', priority = 'low', dueDate = null, content = '') => {
+        const newTask: Task = {
           id: generateId(),
           title,
-          rawInput,
-          scheduledAt: scheduledAt ? scheduledAt.toISOString() : null,
-          notificationIds: [],
-          status: 'sin-empezar',
-          createdAt: new Date().toISOString(),
-          dayKey,
-          tags: tags || [],
-          isRecurring: !!isRecurring,
+          status: 'todo',
           area,
           priority,
+          dueDate,
+          content,
+          createdAt: new Date().toISOString(),
+          dayKey: dueDate ? dueDate.split('T')[0] : todayKey(),
+          notificationIds: [],
         };
 
-        set((state) => ({
-          events: [newEvent, ...state.events],
-        }));
+        set((state) => {
+          const newTasks = [newTask, ...state.tasks];
+          return { tasks: newTasks, events: newTasks };
+        });
 
-        return newEvent;
+        return newTask;
       },
 
-      updateEventStatus: (id, newStatus) => {
-        set((state) => ({
-          events: state.events.map((e) =>
-            e.id === id ? { ...e, status: newStatus } : e
-          ),
-        }));
+      updateTaskStatus: (id, newStatus) => {
+        set((state) => {
+          const newTasks = state.tasks.map((t) =>
+            t.id === id ? { ...t, status: newStatus } : t
+          );
+          return { tasks: newTasks, events: newTasks };
+        });
       },
 
-      updateEventProperties: (id, partial) => {
-        set((state) => ({
-          events: state.events.map((e) =>
-            e.id === id ? { ...e, ...partial } : e
-          ),
-        }));
+      updateTaskProperties: (id, partial) => {
+        set((state) => {
+          const newTasks = state.tasks.map((t) => {
+            if (t.id === id) {
+              const updated = { ...t, ...partial };
+              // If dueDate changes, also update the dayKey for timeline grouping
+              if (partial.dueDate !== undefined) {
+                updated.dayKey = partial.dueDate ? partial.dueDate.split('T')[0] : t.dayKey;
+              }
+              return updated;
+            }
+            return t;
+          });
+          return { tasks: newTasks, events: newTasks };
+        });
       },
 
-      deleteEvent: (id) => {
-        set((state) => ({
-          events: state.events.filter((e) => e.id !== id),
-        }));
+      deleteTask: (id) => {
+        set((state) => {
+          const newTasks = state.tasks.filter((t) => t.id !== id);
+          return { tasks: newTasks, events: newTasks };
+        });
       },
 
-      updateEventNotification: (id, notificationIds) => {
-        set((state) => ({
-          events: state.events.map((e) =>
-            e.id === id ? { ...e, notificationIds } : e
-          ),
-        }));
+      clearCompletedTasks: () => {
+        set((state) => {
+          const newTasks = state.tasks.filter((t) => t.status !== 'done');
+          return { tasks: newTasks, events: newTasks };
+        });
       },
 
-      clearCompletedEvents: () => {
-        set((state) => ({
-          events: state.events.filter((e) => e.status !== 'listo'),
-        }));
-      },
-
-      setActiveEditEventId: (id) => {
-        set({ activeEditEventId: id });
+      setActiveEditTaskId: (id) => {
+        set({ activeEditTaskId: id });
       },
 
       // ── Journal Actions ────────────────────────────────────────
@@ -208,23 +190,22 @@ export const useAppStore = create<AppState>()(
 
       // ── Selectors ─────────────────────────────────────────────
 
-      getEventsByDay: (dayKey) => {
+      getTasksByDay: (dayKey) => {
         return get()
-          .events.filter((e) => e.dayKey === dayKey)
+          .tasks.filter((t) => t.dayKey === dayKey)
           .sort((a, b) => {
-            // Sort by scheduledAt time within the day
-            if (!a.scheduledAt) return 1;
-            if (!b.scheduledAt) return -1;
-            return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
           });
       },
     }),
     {
       name: APP_CONFIG.asyncStorageKey,
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist essential data, not derived state
       partialize: (state) => ({
-        events: state.events,
+        tasks: state.tasks, // Persist tasks
+        events: state.tasks, // Persist events as tasks to ensure alias loads
         journalNotes: state.journalNotes,
         preferences: state.preferences,
       }),

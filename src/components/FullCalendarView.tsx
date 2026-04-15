@@ -27,31 +27,31 @@ interface Props {
 }
 
 export default function FullCalendarView({ selectedDate, onSelectDate }: Props) {
-  const events = useAppStore((s) => s.events);
+  const tasks = useAppStore((s) => s.tasks);
 
   // Derivar markedDates dinámicamente con Dots de Carga
   const markedDates = useMemo(() => {
     const marks: any = {};
-    const eventsPerDay: Record<string, typeof events> = {};
+    const tasksPerDay: Record<string, typeof tasks> = {};
 
     // Agrupar
-    events.forEach(event => {
-      if (!eventsPerDay[event.dayKey]) eventsPerDay[event.dayKey] = [];
-      eventsPerDay[event.dayKey].push(event);
+    tasks.forEach(task => {
+      if (!tasksPerDay[task.dayKey]) tasksPerDay[task.dayKey] = [];
+      tasksPerDay[task.dayKey].push(task);
     });
 
     // Crear dots (máx 3 para legibilidad)
-    Object.keys(eventsPerDay).forEach(dayKey => {
-      const dayEvents = eventsPerDay[dayKey];
-      const pendingCount = dayEvents.filter(e => e.status !== 'listo').length;
+    Object.keys(tasksPerDay).forEach(dayKey => {
+      const dayTasks = tasksPerDay[dayKey];
+      const pendingCount = dayTasks.filter(t => t.status !== 'done').length;
       
       let dots = [];
       for (let i = 0; i < Math.min(pendingCount, 3); i++) {
-        dots.push({ key: `dot-${i}`, color: Colors.brand.primary });
+        dots.push({ key: `dot-${i}`, color: '#FFFFFF' }); // Notion white dot style
       }
 
       // Si todo está completado pero hay eventos, mostramos 1 gris
-      if (pendingCount === 0 && dayEvents.length > 0) {
+      if (pendingCount === 0 && dayTasks.length > 0) {
         dots.push({ key: 'done', color: Colors.text.muted });
       }
 
@@ -67,7 +67,7 @@ export default function FullCalendarView({ selectedDate, onSelectDate }: Props) 
     }
 
     return marks;
-  }, [events, selectedDate]);
+  }, [tasks, selectedDate]);
 
   return (
     <View style={styles.container}>
